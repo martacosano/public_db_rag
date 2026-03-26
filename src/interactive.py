@@ -34,26 +34,33 @@ class RAGChatInterface:
             True if initialization successful, False otherwise
         """
         try:
-            print("🔄 Inicializando sistema RAG...")
+            print("🔄 Initializing RAG system...")
             self.start_time = time.time()
             
             # Initialize RAG system
+            llm_backend = os.getenv("LLM_BACKEND", "ollama").lower()
+            llm_model_default = "llama3.2:1b" if llm_backend == "ollama" else "llama-3.1-70b-versatile"
+            llm_model = os.getenv("LLM_MODEL", llm_model_default)
+            groq_api_key = os.getenv("GROQ_API_KEY", None)
+
             self.rag = RAGSystem(
                 ollama_base_url="http://localhost:11434",
                 embeddings_model="nomic-embed-text",
-                llm_model="llama3.2:1b",
+                llm_model=llm_model,
+                llm_backend=llm_backend,
+                groq_api_key=groq_api_key,
                 vector_store_directory=self.vector_store_path
             )
             
             # Check if vector store exists and try to load it
             if os.path.exists(self.vector_store_path) and os.listdir(self.vector_store_path):
                 try:
-                    print(f"📂 Cargando vector store existente desde {self.vector_store_path}...")
+                    print(f"📂 Loading existing vector store from {self.vector_store_path}...")
                     self.rag.load_vector_store(self.vector_store_path)
-                    print("✓ Vector store cargado")
+                    print("✓ Vector store loaded")
                 except Exception as exc:
-                    print(f"⚠️ No se pudo cargar el vector store: {exc}")
-                    print("Se procesarán los PDFs y se creará uno nuevo.")
+                    print(f"⚠️ Failed to load vector store: {exc}")
+                    print("Will process PDFs and create a new vector store.")
                     return self._process_pdfs()
             else:
                 # Load from PDFs and create new vector store
@@ -64,7 +71,7 @@ class RAGChatInterface:
             return True
         
         except Exception as e:
-            print(f"❌ Error inicializando RAG: {str(e)}")
+            print(f"❌ Failed to initialize RAG: {str(e)}")
             return False
     
     def _process_pdfs(self) -> bool:
@@ -76,29 +83,29 @@ class RAGChatInterface:
         """
         try:
             # Load from PDFs
-            print(f"📂 Cargando PDFs desde {self.pdf_dir}...")
+            print(f"📂 Loading PDFs from {self.pdf_dir}...")
             loader = PDFLoader(self.pdf_dir)
             
             pdf_list = loader.get_pdf_list()
             if not pdf_list:
-                print(f"❌ No se encontraron PDFs en {self.pdf_dir}")
+                print(f"❌ No PDFs found in {self.pdf_dir}")
                 return False
             
-            print(f"✓ {len(pdf_list)} PDF(s) encontrado(s)")
+            print(f"✓ {len(pdf_list)} PDF(s) found")
             
             documents = loader.load_all_pdfs()
             
             if not documents:
-                print("❌ No se pudieron cargar documentos")
+                print("❌ Failed to load documents")
                 return False
             
-            print(f"✓ {len(documents)} páginas cargadas")
+            print(f"✓ {len(documents)} pages loaded")
             
             # Process documents
-            print("⚙️  Procesando documentos...")
+            print("⚙️  Processing documents...")
             self.rag.ingest_documents(documents)
             
-            print(f"💾 Vector store preparado en {self.vector_store_path}")
+            print(f"💾 Vector store ready at {self.vector_store_path}")
             return True
         
         except Exception as e:
@@ -111,12 +118,12 @@ class RAGChatInterface:
             return
         
         print("\n" + "="*70)
-        print("💬 RAG Chat Interface - Consulta tus PDFs")
+        print("💬 RAG Chat Interface - Query your PDFs")
         print("="*70)
-        print("\nComandos especiales:")
-        print("  'salir'      - Terminar la sesión")
-        print("  'limpiar'    - Limpiar pantalla")
-        print("  'métricas'   - Mostrar estadísticas")
+        print("\nSpecial commands:")
+        print("  'exit'      - End the session")
+        print("  'clear'     - Clear the screen")
+        print("  'metrics'   - Show statistics")
         print("="*70 + "\n")
         
         query_count = 0
@@ -128,32 +135,32 @@ class RAGChatInterface:
                 user_input = input("\n❓ Tu pregunta: ").strip()
                 
                 # Handle special commands
-                if user_input.lower() == "salir":
-                    print("\n👋 ¡Hasta luego!")
+                if user_input.lower() == "exit":
+                    print("\n👋 Goodbye!")
                     break
                 
-                if user_input.lower() == "limpiar":
+                if user_input.lower() == "clear":
                     os.system("clear" if os.name != "nt" else "cls")
                     continue
                 
-                if user_input.lower() == "métricas":
+                if user_input.lower() == "metrics":
                     if query_count > 0:
-                        print(f"\n📊 Estadísticas:")
-                        print(f"  • Consultas realizadas: {query_count}")
-                        print(f"  • Tiempo promedio: {total_time/query_count:.2f}s")
-                        print(f"  • Tiempo total: {total_time:.2f}s")
+                        print(f"\n📊 Metrics:")
+                        print(f"  • Queries made: {query_count}")
+                        print(f"  • Average response time: {total_time/query_count:.2f}s")
+                        print(f"  • Total time: {total_time:.2f}s")
                     else:
-                        print("Sin consultas aún")
+                        print("No queries yet")
                     continue
                 
                 if not user_input:
-                    print("⚠️  Por favor escribe una pregunta")
+                    print("⚠️  Please type a question")
                     continue
                 
                 # Query RAG system
-                print("\n🔍 Procesando consulta...")
+                print("\n🔍 Processing query...")
                 query_start = time.time()
-                result = self.rag.query(user_input)
+                result = self.rag.query(user_input, verbose=True)
                 query_time = time.time() - query_start
                 
                 # Update metrics
@@ -168,12 +175,12 @@ class RAGChatInterface:
                 
                 # Show sources
                 if result.get("sources"):
-                    print("\n📌 Fuentes:")
+                    print("\n📌 Sources:")
                     for source in result["sources"]:
-                        page = f"p.{source['page']}" if source['page'] >= 0 else "desconocida"
+                        page = f"p.{source['page']}" if source['page'] >= 0 else "unknown"
                         print(f"  • {source['file']} ({page})")
                 
-                print(f"\n⏱️  Tiempo de respuesta: {query_time:.2f}s")
+                print(f"\n⏱️  Response time: {query_time:.2f}s")
             
             except KeyboardInterrupt:
                 print("\n\n👋 ¡Hasta luego!")
@@ -195,21 +202,25 @@ def check_ollama():
 def main():
     """Main entry point."""
     load_dotenv()
-    
-    # Check Ollama
-    print("🔍 Verificando Ollama...")
-    if not check_ollama():
-        print("❌ Error: Ollama no está corriendo")
-        print("\nPor favor ejecuta: ollama serve")
-        print("En otra terminal, descarga el modelo: ollama pull llama3.2:1b")
-        return
-    
-    print("✓ Ollama disponible\n")
-    
+
+    llm_backend = os.getenv("LLM_BACKEND", "ollama").lower()
+    llm_model = os.getenv("LLM_MODEL", "llama3.2:1b")
+
+    if llm_backend == "ollama":
+        print("🔍 Checking Ollama service...")
+        if not check_ollama():
+            print("❌ Error: Ollama is not running")
+            print("\nPlease run: ollama serve")
+            print("In another terminal, download the model: ollama pull llama3.2:1b")
+            return
+        print("✓ Ollama is available\n")
+    else:
+        print(f"🔍 Using backend {llm_backend} (model {llm_model})")
+
     # PDF directory and vector store path
-    pdf_dir = "../database"
-    vector_store_path = "./chroma_db"
-    
+    pdf_dir = os.getenv("PDF_DIRECTORY", "../database")
+    vector_store_path = os.getenv("VECTOR_STORE_PATH", "./chroma_db")
+
     # Run interface
     interface = RAGChatInterface(pdf_dir, vector_store_path)
     interface.run()
