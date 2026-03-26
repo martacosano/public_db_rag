@@ -1,7 +1,3 @@
-"""
-Main entry point for RAG system with PDF integration and Ollama.
-"""
-
 import os
 import sys
 from pathlib import Path

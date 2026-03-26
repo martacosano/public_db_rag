@@ -1,8 +1,3 @@
-"""
-RAG (Retrieval-Augmented Generation) system using LangChain with Ollama.
-Uses local language models and embeddings.
-"""
-
 from typing import List, Optional
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma

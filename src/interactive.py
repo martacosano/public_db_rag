@@ -1,8 +1,3 @@
-"""
-Interactive RAG query interface with PDF support and Ollama.
-Provides a command-line interface for querying the RAG system.
-"""
-
 import os
 import time
 from dotenv import load_dotenv
