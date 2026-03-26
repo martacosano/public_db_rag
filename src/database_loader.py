@@ -8,6 +8,7 @@ from pathlib import Path
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
 import os
+import re
 
 
 class PDFLoader:
@@ -24,6 +25,14 @@ class PDFLoader:
         if not self.pdf_directory.exists():
             raise ValueError(f"Directory {pdf_directory} does not exist")
     
+    def _clean_document(self, doc: Document) -> Document:
+        """Clean text in a loaded Document (preprocessing)."""
+        texto_pdf = doc.page_content
+        texto_limpio = re.sub(r'\n{3,}', '\n\n', texto_pdf)
+        texto_limpio = texto_limpio.replace('Boletín Oficial del Estado', '')
+        doc.page_content = texto_limpio
+        return doc
+
     def load_all_pdfs(self) -> List[Document]:
         """
         Load all PDF files from directory.
@@ -38,17 +47,18 @@ class PDFLoader:
             raise ValueError(f"No PDF files found in {self.pdf_directory}")
         
         for pdf_file in pdf_files:
-            print(f"  📄 Cargando {pdf_file.name}...")
+            print(f"  📄 Loading {pdf_file.name}...")
             loader = PyPDFLoader(str(pdf_file))
             docs = loader.load()
             
-            # Add source file metadata
+            # Clean content and add source file metadata
             for doc in docs:
+                doc = self._clean_document(doc)
                 doc.metadata['source_file'] = pdf_file.name
             
             documents.extend(docs) 
         
-        print(f"✓ Total: {len(pdf_files)} archivos, {len(documents)} páginas")
+        print(f"✓ Total: {len(pdf_files)} files, {len(documents)} pages")
         return documents
     
     def load_specific_pdf(self, filename: str) -> List[Document]:
@@ -69,8 +79,9 @@ class PDFLoader:
         loader = PyPDFLoader(str(pdf_path))
         docs = loader.load()
         
-        # Add source file metadata
+        # Clean content and add source file metadata
         for doc in docs:
+            doc = self._clean_document(doc)
             doc.metadata['source_file'] = filename
         
         return docs
