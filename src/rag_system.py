@@ -5,12 +5,15 @@ Uses local language models and embeddings.
 
 from typing import List, Optional
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS, Chroma
+from langchain_chroma import Chroma
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.llms import Ollama
-from langchain.chains import RetrievalQA
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_classic.chains import create_retrieval_chain
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.documents import Document
 import json
+from tqdm import tqdm
 import os
 
 
@@ -21,8 +24,8 @@ class RAGSystem:
         self, 
         ollama_base_url: str = "http://localhost:11434",
         embeddings_model: str = "nomic-embed-text",
-        llm_model: str = "llama3.1:8b",
-        vector_store_type: str = "chroma"
+        llm_model: str = "llama3.1:1b", #"llama3.1:8b",
+        vector_store_directory: str = "./chroma_db"
     ):
         """
         Initialize RAG system with Ollama.
@@ -31,15 +34,15 @@ class RAGSystem:
             ollama_base_url: URL where Ollama service is running
             embeddings_model: Ollama embeddings model to use
             llm_model: Ollama LLM model to use
-            vector_store_type: Type of vector store ('faiss' or 'chroma')
+            vector_store_directory: Directory to save/load vector store (optional)
         """
         self.ollama_base_url = ollama_base_url
         self.embeddings_model = embeddings_model
         self.llm_model = llm_model
-        self.vector_store = None
-        self.vector_store_type = vector_store_type
-        
-        # Initialize embeddings
+        self.vector_store_directory = vector_store_directory
+        self.retrieval_chain = None
+         
+        # 1.Initialize embeddings
         try:
             self.embeddings = OllamaEmbeddings(
                 base_url=ollama_base_url,
@@ -50,12 +53,13 @@ class RAGSystem:
             print(f"⚠️  Error con embeddings: {str(e)}")
             raise
         
-        # Initialize LLM
+        # 2.Initialize LLM
         try:
             self.llm = Ollama(
                 base_url=ollama_base_url,
                 model=llm_model,
-                temperature=0.3,
+                num_thread= 8, # Usa 8 hilos para acelerar la generación
+                temperature=0.1, # Lower temperature for more factual answers
                 top_k=40,
                 top_p=0.9
             )
@@ -64,11 +68,12 @@ class RAGSystem:
             print(f"⚠️  Error con LLM: {str(e)}")
             raise
         
-        self.retrieval_qa = None
-        # chunking , text splitter
-        self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=800,
-            chunk_overlap=100,
+    
+        # 3.Initialize tokens splitter
+        self.text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+            model_name= 'gpt-4', 
+            chunk_size=1200, # tokens for each chunk
+            chunk_overlap=200, # overlap
             separators=["\n\n", "\n", " ", ""]
         )
     
@@ -76,96 +81,134 @@ class RAGSystem:
     
     def ingest_documents(self, documents: List[Document]) -> None:
         """
-        Ingest documents into vector store.
+        Ingest documents into vector store. Just will be used the first time.
         
         Args:
             documents: List of Document objects to ingest
         """
-        # Split documents
-        print("📄 Dividiendo documentos...")
+        # Split documents in chunks
+        print("📄 Dividiendo documentos en chunks...")
         split_docs = self.text_splitter.split_documents(documents)
         print(f"  {len(split_docs)} chunks creados")
         
         # Create vector store
-        print(f"🔍 Creando vector store ({self.vector_store_type})...")
-        if self.vector_store_type == "faiss":
-            self.vector_store = FAISS.from_documents(
-                split_docs, 
-                self.embeddings
-            )
-        elif self.vector_store_type == "chroma":
-            self.vector_store = Chroma.from_documents(
-                split_docs,
-                self.embeddings,
-                persist_directory="./chroma_db"
-            )
+        print(f"Guardando en ChromaDB en {self.vector_store_directory}...")
+        # self.vector_store = Chroma.from_documents(
+        #         split_docs,
+        #         self.embeddings,
+        #         persist_directory=self.vector_store_directory
+        #     )
+        # En lugar de usar Chroma.from_documents directamente, 
+        # lo hacemos en lotes para ver la barra
+        self.vector_store = Chroma(
+            persist_directory=self.vector_store_directory,
+            embedding_function=self.embeddings
+        )
+
+        # Añadimos los documentos con barra de progreso
+        for i in tqdm(range(0, len(split_docs), 10)):
+            batch = split_docs[i : i + 10]
+            self.vector_store.add_documents(batch)
+        # Una vez guardados, activamos la cadena de respuesta
+        self._create_chain()
+
+    def load_vector_store(self, path: str) -> None:
+        """
+        Memory, Load vector store from disk, which we created in previous runs. 
+        This allows us to skip the PDF processing step.
         
-        print("✓ Vector store creado")
-        
+        Args:
+            path: Path to saved vector store
+        """
+        if os.path.exists(self.vector_store_directory):
+            print(f"📂 Cargando base de datos desde {self.vector_store_directory}...")
+            self.vector_store = Chroma(
+                persist_directory=self.vector_store_directory,
+                embedding_function=self.embeddings
+            )
+            self._create_chain()
+            print("✓ Base de datos cargada correctamente.")
+        else:
+            print("⚠️ No existe base de datos previa para cargar.")
+
+
+    def _create_chain(self):
+        """
+        Esta función une el buscador con el generador de texto.
+        """
+        if not self.vector_store:
+            raise ValueError("No vector_store disponible para crear el chain")
+              
         # Create retrieval QA chain
         print("🔗 Creando cadena de recuperación...")
-        self.retrieval_qa = RetrievalQA.from_chain_type(
-            llm=self.llm,
-            chain_type="stuff",
-            retriever=self.vector_store.as_retriever(search_kwargs={"k": 10}),
-            return_source_documents=True
+       # Configurar la cadena de respuesta 
+        system_prompt = (
+            "Eres un Asistente Jurídico experto en legislación española. Tu tarea es responder consultas "
+            "basándote exclusivamente en las leyes proporcionadas en el contexto."
+            "\n\n"
+            "REGLAS DE ACTUACIÓN:"
+            "1. CITA DIRECTA: Siempre que sea posible, menciona el número de artículo o disposición de la ley."
+            "2. FIDELIDAD: No parafrasees conceptos legales si eso implica perder precisión técnica."
+            "3. RESPUESTA NEGATIVA: Si la consulta no está cubierta por los fragmentos de las leyes "
+            "proporcionadas, responde: 'Basándome en los documentos disponibles, no se encuentra una base legal para responder a esta consulta'."
+            "4. ESTRUCTURA: Usa puntos clave para facilitar la lectura de obligaciones o plazos."
+            "\n\n"
+            "CONTEXTO LEGAL RECUPERADO:"
+            "\n{context}\n"
+        )
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),  
+            ("human", "{input}"),
+        ])
+
+        # Create the chain that combines retrieved documents
+        combine_docs_chain = create_stuff_documents_chain(self.llm, prompt)
+        # Create the retrieval chain that uses the vector store retriever and the combine_docs_chain
+        self.retrieval_chain = create_retrieval_chain(
+            self.vector_store.as_retriever(search_kwargs={"k": 10}),
+            combine_docs_chain
         )
         print("✓ Cadena lista")
     
+
     def query(self, question: str) -> dict:
         """
-        Query the RAG system.
-        
+        CONSULTA: La función que usas para preguntar.
+        Busca en los vectores -> Recupera texto -> El LLM responde.
+       
         Args:
             question: User question
             
         Returns:
             Dictionary with answer and source documents
         """
-        if not self.retrieval_qa:
+        if not self.retrieval_chain:
             raise ValueError("RAG system not initialized. Call ingest_documents first.")
-        
-        result = self.retrieval_qa({"query": question})
-        
-        # Format response with answer, passages and pages
+
+        result = self.retrieval_chain.invoke({"input": question})
+      
+        # Format response with the answer, passages and pages
+        answer = result.get("answer") if isinstance(result, dict) else str(result)
+        source_documents = result.get("context", [])
+
+        print(f"\n[DEBUG] Fragmentos recuperados: {len(source_documents)}")
+        for i, doc in enumerate(source_documents):
+            source_name = os.path.basename(doc.metadata.get("source", "unknown"))
+            page = doc.metadata.get("page", "N/A")
+            print(f"   - Doc {i+1}: {source_name} (Pág. {page})")
+
+        # 4. Formatear la salida 
         return {
-            "answer": result["result"],
+            "answer": answer,
             "question": question,
             "sources": [
                 {
-                    "file": doc.metadata.get("source_file", "unknown"),
-                    "page": doc.metadata.get("page", -1)
+                    # En LangChain/PyPDFLoader la metadata suele ser 'source'
+                    "file": os.path.basename(doc.metadata.get("source", "unknown")),
+                    "page": doc.metadata.get("page", -1),
+                    "content_preview": doc.page_content[:150].strip().replace('\n', ' ') + "..."
                 }
-                for doc in result.get("source_documents", [])
+                for doc in source_documents
             ]
         }
-    
-    def save_vector_store(self, path: str) -> None:
-        """
-        Save vector store to disk.
-        
-        Args:
-            path: Path to save vector store
-        """
-        if self.vector_store and self.vector_store_type == "faiss":
-            os.makedirs(path, exist_ok=True)
-            self.vector_store.save_local(path)
-            print(f"✓ Vector store guardado en {path}")
-    
-
-    def load_vector_store(self, path: str) -> None:
-        """
-        Load vector store from disk.
-        
-        Args:
-            path: Path to saved vector store
-        """
-        if self.vector_store_type == "faiss":
-            self.vector_store = FAISS.load_local(path, self.embeddings)
-            self.retrieval_qa = RetrievalQA.from_chain_type(
-                llm=self.llm,
-                chain_type="stuff",
-                retriever=self.vector_store.as_retriever(search_kwargs={"k": 4}),
-                return_source_documents=True
-            )
-            print(f"✓ Vector store cargado desde {path}")

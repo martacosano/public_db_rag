@@ -40,7 +40,7 @@ def main():
     
     # PDF directory
     pdf_dir = "../database"
-    
+    print(os.getcwd())
     try:
         # Initialize PDF loader
         print("\n📂 Inicializando cargador de PDFs...")
@@ -70,27 +70,33 @@ def main():
         rag = RAGSystem(
             ollama_base_url="http://localhost:11434",
             embeddings_model="nomic-embed-text",
-            llm_model="mistral",
-            vector_store_type="faiss"
+            llm_model="llama3.2:1b",
+            vector_store_directory="./chroma_db"
         )
+
+        # Cargar vector store si ya existe
+        vector_store_path = "./chroma_db"
+        if os.path.exists(vector_store_path) and os.listdir(vector_store_path):
+            try:
+                print(f"\n📂 Cargando vector store existente desde {vector_store_path}...")
+                rag.load_vector_store(vector_store_path)
+                print("✓ Vector store cargado con éxito")
+            except Exception as exc:
+                print(f"⚠️ No se pudo cargar el vector store: {exc}")
+                print("Se procesarán los PDFs y se creará uno nuevo.")
+                rag.ingest_documents(documents)
+        else:
+            # Ingest documents
+            print("\n⚙️  Procesando documentos...")
+            rag.ingest_documents(documents)
+
         
-        # Ingest documents
-        print("\n⚙️  Procesando documentos...")
-        rag.ingest_documents(documents)
-        
-        # Save vector store
-        vector_store_path = "./vector_store"
-        print(f"\n💾 Guardando vector store...")
-        rag.save_vector_store(vector_store_path)
+        print("\n💾 Vector store preparado en", vector_store_path)
         
         # Example queries
         print("\n" + "="*60)
         print("✅ RAG System Listo!")
         print("="*60)
-        print("\nEjemplos de consultas:")
-        print("  • ¿Cuál es el tema principal del documento?")
-        print("  • ¿Qué información importante contiene?")
-        print("  • Resúmame los puntos clave")
         print("\nEjcuta: python interactive.py")
         print("="*60)
     

@@ -19,11 +19,11 @@ class RAGChatInterface:
         
         Args:
             pdf_dir: Directory containing PDF files
-            vector_store_path: Path to saved vector store (optional)
+            vector_store_path: Path to saved vector store directory (optional)
         """
         self.pdf_dir = pdf_dir
+        self.vector_store_path = vector_store_path or "./chroma_db"
         self.rag = None
-        self.vector_store_path = vector_store_path
         self.start_time = None
         
     def initialize(self) -> bool:
@@ -37,47 +37,27 @@ class RAGChatInterface:
             print("🔄 Inicializando sistema RAG...")
             self.start_time = time.time()
             
-            # Check if vector store exists
-            if self.vector_store_path and os.path.exists(self.vector_store_path):
-                print(f"📂 Cargando vector store desde {self.vector_store_path}...")
-                self.rag = RAGSystem()
-                self.rag.load_vector_store(self.vector_store_path)
-                print("✓ Vector store cargado")
+            # Initialize RAG system
+            self.rag = RAGSystem(
+                ollama_base_url="http://localhost:11434",
+                embeddings_model="nomic-embed-text",
+                llm_model="llama3.2:1b",
+                vector_store_directory=self.vector_store_path
+            )
+            
+            # Check if vector store exists and try to load it
+            if os.path.exists(self.vector_store_path) and os.listdir(self.vector_store_path):
+                try:
+                    print(f"📂 Cargando vector store existente desde {self.vector_store_path}...")
+                    self.rag.load_vector_store(self.vector_store_path)
+                    print("✓ Vector store cargado")
+                except Exception as exc:
+                    print(f"⚠️ No se pudo cargar el vector store: {exc}")
+                    print("Se procesarán los PDFs y se creará uno nuevo.")
+                    return self._process_pdfs()
             else:
-                # Load from PDFs
-                print(f"📂 Cargando PDFs desde {self.pdf_dir}...")
-                loader = PDFLoader(self.pdf_dir)
-                
-                pdf_list = loader.get_pdf_list()
-                if not pdf_list:
-                    print(f"❌ No se encontraron PDFs en {self.pdf_dir}")
-                    return False
-                
-                print(f"✓ {len(pdf_list)} PDF(s) encontrado(s)")
-                
-                documents = loader.load_all_pdfs()
-                
-                if not documents:
-                    print("❌ No se pudieron cargar documentos")
-                    return False
-                
-                print(f"✓ {len(documents)} páginas cargadas")
-                
-                # Initialize RAG
-                print("🤖 Inicializando RAG...")
-                self.rag = RAGSystem(
-                    ollama_base_url="http://localhost:11434",
-                    embeddings_model="nomic-embed-text",
-                    llm_model="llama3.1:8b",
-                )
-                
-                # Process documents
-                self.rag.ingest_documents(documents)
-                
-                # Save vector store
-                if self.vector_store_path:
-                    print(f"💾 Guardando vector store...")
-                    self.rag.save_vector_store(self.vector_store_path)
+                # Load from PDFs and create new vector store
+                return self._process_pdfs()
             
             elapsed = time.time() - self.start_time
             print(f"✓ RAG iniciado en {elapsed:.1f}s")
@@ -85,6 +65,44 @@ class RAGChatInterface:
         
         except Exception as e:
             print(f"❌ Error inicializando RAG: {str(e)}")
+            return False
+    
+    def _process_pdfs(self) -> bool:
+        """
+        Process PDFs and create vector store.
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Load from PDFs
+            print(f"📂 Cargando PDFs desde {self.pdf_dir}...")
+            loader = PDFLoader(self.pdf_dir)
+            
+            pdf_list = loader.get_pdf_list()
+            if not pdf_list:
+                print(f"❌ No se encontraron PDFs en {self.pdf_dir}")
+                return False
+            
+            print(f"✓ {len(pdf_list)} PDF(s) encontrado(s)")
+            
+            documents = loader.load_all_pdfs()
+            
+            if not documents:
+                print("❌ No se pudieron cargar documentos")
+                return False
+            
+            print(f"✓ {len(documents)} páginas cargadas")
+            
+            # Process documents
+            print("⚙️  Procesando documentos...")
+            self.rag.ingest_documents(documents)
+            
+            print(f"💾 Vector store preparado en {self.vector_store_path}")
+            return True
+        
+        except Exception as e:
+            print(f"❌ Error procesando PDFs: {str(e)}")
             return False
     
     def run(self) -> None:
@@ -183,14 +201,14 @@ def main():
     if not check_ollama():
         print("❌ Error: Ollama no está corriendo")
         print("\nPor favor ejecuta: ollama serve")
-        print("En otra terminal, descarga un modelo: ollama pull mistral")
+        print("En otra terminal, descarga el modelo: ollama pull llama3.2:1b")
         return
     
     print("✓ Ollama disponible\n")
     
-    # PDF directory
+    # PDF directory and vector store path
     pdf_dir = "../database"
-    vector_store_path = "./vector_store"
+    vector_store_path = "./chroma_db"
     
     # Run interface
     interface = RAGChatInterface(pdf_dir, vector_store_path)

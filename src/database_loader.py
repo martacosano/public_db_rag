@@ -46,7 +46,7 @@ class PDFLoader:
             for doc in docs:
                 doc.metadata['source_file'] = pdf_file.name
             
-            documents.extend(docs)
+            documents.extend(docs) 
         
         print(f"✓ Total: {len(pdf_files)} archivos, {len(documents)} páginas")
         return documents
