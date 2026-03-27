@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# RAG / Vector Stores
+vector_store/
+chroma_db/
+*.faiss
+*.pkl
+*.index
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary
+tmp/
+temp/
+
+# Large files (exclude PDFs > 100MB if needed)
+# *.pdf
+
+# Ollama cache (local installations)
+.ollama/
+
