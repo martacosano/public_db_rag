@@ -220,7 +220,7 @@ def run_evaluation():
         results.append(entry)
 
     # Guardar en eval.jsonl
-    with open("eval.jsonl", "w", encoding="utf-8") as f:
+    with open("../evaluation/eval.jsonl", "w", encoding="utf-8") as f:
         for r in results:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
@@ -246,7 +246,7 @@ def run_evaluation():
     print(f"⏱️  Latencia Promedio por Query: {sum(r['latency'] for r in results)/len(results):.2f}s")
     print("   - Tiempo promedio de recuperación + generación")
     print()
-    print(f"📂 Detalles completos guardados en: eval.jsonl")
+    print(f"📂 Detalles completos guardados en: ../evaluation/eval.jsonl")
     print("   - Incluye respuestas, fuentes recuperadas, puntuaciones por caso")
     print("="*70)
 

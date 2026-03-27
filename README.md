@@ -7,7 +7,7 @@ Este proyecto ha sido desarrollado siguiendo los requisitos de un challenge téc
 * **Ingesta y Preprocesado:** Gestión de PDFs con limpieza de ruido.
 * **Chunking:** Segmentación recursiva por tokens con solapamiento (*overlap*).
 * **Reranking:** Implementación de un modelo de re-ordenación para mejorar la relevancia del contexto.
-* **Evaluación:** Set de pruebas en `eval.jsonl` con métricas de veracidad (LLM-as-a-Judge) y precisión de citas.
+* **Evaluación:** Set de pruebas en `evaluation/eval.jsonl` con métricas de veracidad (LLM-as-a-Judge) y precisión de citas.
 
 ---
 
