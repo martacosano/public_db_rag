@@ -79,11 +79,11 @@ Se han utilizado 5 documentos legales.
 
 | Archivo Final | Ley Original |
 | :--- | :--- |
-| `Constitucion_Espanola.pdf` | Constitución Española (1978) |
-| `Ley_Arrendamientos_Urbanos.pdf` | LAU (Alquileres) |
-| `Ley_General_Subvenciones.pdf` | LGS (Ayudas Públicas) |
-| `Ley_Seguridad_Privada.pdf` | Seguridad Privada Consolidada |
-| `Ley_Regimen_Fiscal_EFL.pdf` | Ley 49/2002 (Mecenazgo) |
+| `Constitucion_Española.pdf` | Constitución Española (1978) |
+| `LEY_ARRENDAMIENTOS_URBANOS.pdf` | LAU (Alquileres) |
+| `LEY_GENERAL_DE_SUBVENCIONES.pdf` | LGS (Ayudas Públicas) |
+| `Ley_Seguridad_Privada_Consolidada.pdf` | Seguridad Privada Consolidada |
+| `REGIMEN_FISCAL_DE_LAS_ENTIDADES_SIN_FINES_LUCRATIVOS.pdf` | Ley 49/2002 (Mecenazgo) |
 
 ---
 
