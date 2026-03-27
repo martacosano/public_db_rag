@@ -14,7 +14,7 @@ Este proyecto ha sido desarrollado siguiendo los requisitos de un challenge téc
 ## 1. Cómo se ejecuta 🚀
 
 ### Prerrequisitos
-- **Python 3.10+**
+- **Python 3.10+** (Yo estoy usando Python 3.13.12)
 - **Ollama:** Instalado y ejecutándose (`ollama pull nomic-embed-text`).
 - **Groq API Key:** Configurada en el entorno.
 
@@ -25,8 +25,18 @@ Este proyecto ha sido desarrollado siguiendo los requisitos de un challenge téc
     ```
 2.  **Configurar variables de entorno (`.env`):**
     ```env
-    GROQ_API_KEY=tu_clave_groq
+    # Backend y modelo de LLM
+    LLM_BACKEND=groq  # 'ollama' o 'groq'
+    LLM_MODEL=llama-3.1-8b-instant  # Modelo a usar
+    
+    # Configuración de Ollama
     OLLAMA_BASE_URL=http://localhost:11434
+    OLLAMA_EMBEDDINGS_MODEL=nomic-embed-text
+    
+    # API Key de Groq (requerida si usas groq)
+    GROQ_API_KEY=tu_clave_groq
+    
+    # Rutas
     PDF_DIRECTORY=../database
     VECTOR_STORE_PATH=./chroma_db
     ```
