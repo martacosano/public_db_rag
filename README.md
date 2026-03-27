@@ -7,7 +7,7 @@ Este proyecto ha sido desarrollado siguiendo los requisitos de un challenge téc
 * **Ingesta:** Dataset de 5-10 PDFs públicos.
 * **Chunking:** Segmentación recursiva por tokens con solapamiento (*overlap*).
 * **Reranking:** Implementación de un modelo de re-ordenación para mejorar la relevancia del contexto.
-* **Evaluación:** Golden dataset de 10 preguntsa y respuestas esperadas + pasajes fuente.
+* **Evaluación:** Golden dataset de 10 preguntas y respuestas esperadas + pasajes fuente.
 
 ---
 
