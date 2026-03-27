@@ -4,10 +4,10 @@
 Este proyecto ha sido desarrollado siguiendo los requisitos de un challenge técnico de arquitectura RAG para QA Documental. El sistema está diseñado para ingerir, procesar y consultar documentos legales complejos con alta precisión.
 
 **Especificaciones del ejercicio cumplidas:**
-* **Ingesta y Preprocesado:** Gestión de PDFs con limpieza de ruido.
+* **Ingesta:** Dataset de 5-10 PDFs públicos.
 * **Chunking:** Segmentación recursiva por tokens con solapamiento (*overlap*).
 * **Reranking:** Implementación de un modelo de re-ordenación para mejorar la relevancia del contexto.
-* **Evaluación:** Set de pruebas en `evaluation/eval.jsonl` con métricas de veracidad (LLM-as-a-Judge) y precisión de citas.
+* **Evaluación:** Golden dataset de 10 preguntsa y respuestas esperadas + pasajes fuente.
 
 ---
 
