@@ -14,7 +14,7 @@ Este proyecto ha sido desarrollado siguiendo los requisitos de un challenge téc
 ## 1. Cómo se ejecuta 🚀
 
 ### Prerrequisitos
-- **Python 3.10+** (Yo estoy usando Python 3.13.12)
+- **Python 3.10+** (Testeado con Python 3.13.12)
 - **Ollama:** Instalado y ejecutándose (`ollama pull nomic-embed-text`).
 - **Groq API Key:** Configurada en el entorno.
 
