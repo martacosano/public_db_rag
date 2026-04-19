@@ -29,8 +29,12 @@ class PDFLoader:
         """Clean text in a loaded Document (preprocessing)."""
         texto_pdf = doc.page_content
         texto_limpio = re.sub(r'\n{3,}', '\n\n', texto_pdf)
-        texto_limpio = texto_limpio.replace('Boletín Oficial del Estado', '')
-        doc.page_content = texto_limpio
+        # 2. Reemplazo insensible a mayúsculas/minúsculas
+        texto_limpio = re.sub(r'Boletín Oficial del Estado', '', texto_limpio, flags=re.IGNORECASE)
+        texto_limpio = re.sub(r'LEGISLACIÓN CONSOLIDADA', '', texto_limpio, flags=re.IGNORECASE)
+        # Borra "Página" seguido de cualquier número
+        texto_limpio = re.sub(r'Página\s+\d+', '', texto_limpio, flags=re.IGNORECASE)
+        doc.page_content = texto_limpio.strip()
         return doc
 
     def load_all_pdfs(self) -> List[Document]:
