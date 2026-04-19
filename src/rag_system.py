@@ -72,9 +72,16 @@ class RAGSystem:
         # 3.Initialize tokens splitter
         self.text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
             model_name= 'gpt-4', 
-            chunk_size=1000, # tokens for each chunk
-            chunk_overlap=200, # overlap
-            separators=["\n\n", "\n", " ", ""]
+            chunk_size=800, # tokens for each chunk, if it is big (1000-2000 tokens)
+            chunk_overlap=100, # overlap
+            separators=[
+            "\nArticulo ", "\nArtículo ",  # 1. Intenta cortar por el inicio de artículos
+            "\n\n",                        # 2. Si no, por párrafos dobles
+            "\n",                          # 3. Si no, por líneas
+            ". ",                          # 4. Si no, por puntos
+            " ",                           # 5. Finalmente, por espacios
+            ""                             # 6. Carácter a carácter (último recurso)
+            ]
         )
     
     def _init_llm(self):
@@ -117,6 +124,7 @@ class RAGSystem:
         print(f"Saving in ChromaDB at {self.vector_store_directory}...")
 
         self.vector_store = Chroma(
+            collection_name="legal_documents",
             persist_directory=self.vector_store_directory,
             embedding_function=self.embeddings
         )
@@ -142,6 +150,7 @@ class RAGSystem:
         print(f"📂 Loading database from {path}...")
         self.vector_store_directory = path
         self.vector_store = Chroma(
+            collection_name="legal_documents",
             persist_directory=path,
             embedding_function=self.embeddings
         )
@@ -157,12 +166,12 @@ class RAGSystem:
             raise ValueError("No vector_store available to create chain")
 
         # 1. Base retriever
-        base_retriever = self.vector_store.as_retriever(search_kwargs={"k": 20}) # number of documents to retrieve
+        base_retriever = self.vector_store.as_retriever(search_kwargs={"k": 30}) # number of documents to retrieve
 
-        # 2. El Re-ranker 
+        # 2.  Re-ranker 
         compressor = FlashrankRerank(top_n=5) # number of documents to keep after re-ranking
 
-        # 3. El Retriever "Comprimido": Filtra y reordena los 10 de antes a solo los 5 mejores
+        # 3. The "Compressed" Retriever: Filters and reorders the previous k to only the n best
         compression_retriever = ContextualCompressionRetriever(
             base_compressor=compressor, 
             base_retriever=base_retriever
@@ -170,19 +179,27 @@ class RAGSystem:
 
         # Create retrieval QA chain
         print("🔗 Creando cadena de recuperación...")
-       # Configurar la cadena de respuesta 
+ 
         system_prompt = (
-            "You are a Legal Assistant specialized in Spanish legislation. Your task is to answer questions "
-            "based strictly on the laws provided in the context."
+            "Eres un Asistente Legal experto en legislación española. Tu único objetivo es responder preguntas "
+            "utilizando EXCLUSIVAMENTE el contexto legal proporcionado a continuación. Si la información no está "
+            "en el contexto, no inventes ni uses conocimiento previo."
             "\n\n"
-            "OPERATION GUIDELINES:"
-            "1. DIRECT QUOTE: Whenever possible, cite the article or legal provision number."
-            "2. ACCURACY: Do not paraphrase legal concepts if it reduces technical precision."
-            "3. NEGATIVE RESPONSE: If the question is not covered by the retrieved legal passages, respond: 'Based on the available documents, there is no legal basis to answer this query'."
-            "4. STRUCTURE: Use bullet points to make obligations or deadlines easier to read."
+            "REGLAS CRÍTICAS DE OPERACIÓN:\n"
+            "1. IDIOMA: Responde SIEMPRE en ESPAÑOL. Es obligatorio.\n"
+            "2. FIDELIDAD: Responde basándote únicamente en el texto proporcionado. Si el contexto no contiene la respuesta, "
+            "di exactamente: 'Lo siento, pero la documentación proporcionada no contiene información específica para responder a esta consulta'.\n"
+            "3. CITAS PRECISAS: Es obligatorio indicar la fuente de cada dato. Usa el formato: [Nombre del Archivo, Página X]. "
+            "Si el texto menciona un artículo, cítalo (ej. 'Según el Art. 17...').\n"
+            "4. PROHIBIDO CONOCIMIENTO EXTERNO: No menciones leyes, años o decretos que no aparezcan en el texto de abajo, "
+            "aunque sepas que existen.\n"
+            "5. ESTILO: Usa un tono formal, técnico y organiza la información con puntos clave para mayor claridad.\n"
             "\n\n"
-            "RETRIEVED LEGAL CONTEXT:"
-            "\n{context}\n"
+            "CONTEXTO LEGAL RECUPERADO (Utiliza esto para responder):\n"
+            "----------------------------\n"
+            "{context}\n"
+            "----------------------------\n"
+            "\nPREGUNTA DEL USUARIO: "
         )
 
         prompt = ChatPromptTemplate.from_messages([
@@ -227,20 +244,25 @@ class RAGSystem:
         if verbose:
             for i, doc in enumerate(source_documents):
                 source_name = os.path.basename(doc.metadata.get("source", "unknown"))
-                page = doc.metadata.get("page", "N/A")
+                page = doc.metadata.get("page_label", "N/A")
                 print(f"   - Doc {i+1}: {source_name} (Page {page})")
 
-        # 4. Formatear la salida 
+        # 4. Output
+        sources = []
+        for doc in source_documents:
+            try:
+                page_num = int(doc.metadata.get("page_label", -1))
+            except (ValueError, TypeError):
+                page_num = -1
+            
+            sources.append({
+                "file": os.path.basename(doc.metadata.get("source", "unknown")),
+                "page": page_num,
+                "content_preview": doc.page_content[:150].strip().replace('\n', ' ') + "..."
+            })
+        
         return {
             "answer": answer,
             "question": question,
-            "sources": [
-                {
-                    # En LangChain/PyPDFLoader la metadata suele ser 'source'
-                    "file": os.path.basename(doc.metadata.get("source", "unknown")),
-                    "page": doc.metadata.get("page", -1),
-                    "content_preview": doc.page_content[:150].strip().replace('\n', ' ') + "..."
-                }
-                for doc in source_documents
-            ]
+            "sources": sources
         }

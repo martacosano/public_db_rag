@@ -104,7 +104,7 @@ class RAGChatInterface:
             return True
         
         except Exception as e:
-            print(f"❌ Error procesando PDFs: {str(e)}")
+            print(f"❌ Error processing PDFs: {str(e)}")
             return False
     
     def run(self) -> None:
@@ -172,7 +172,11 @@ class RAGChatInterface:
                 if result.get("sources"):
                     print("\n📌 Sources:")
                     for source in result["sources"]:
-                        page = f"p.{source['page']}" if source['page'] >= 0 else "unknown"
+                        try:
+                            page_num = int(source['page'])
+                            page = f"p.{page_num}" if page_num >= 0 else "unknown"
+                        except (ValueError, TypeError):
+                            page = "unknown"
                         print(f"  • {source['file']} ({page})")
                 
                 print(f"\n⏱️  Response time: {query_time:.2f}s")
