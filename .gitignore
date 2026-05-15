@@ -34,6 +34,9 @@ chroma_db/
 .DS_Store
 Thumbs.db
 
+# Evaluation results
+evaluation/eval.jsonl
+
 # Logs
 *.log
 logs/

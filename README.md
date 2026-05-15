@@ -7,7 +7,7 @@ Este proyecto ha sido desarrollado siguiendo los requisitos de un challenge téc
 * **Ingesta y Preprocesado:** Gestión de PDFs con limpieza de ruido.
 * **Chunking:** Segmentación recursiva por tokens con solapamiento (*overlap*).
 * **Reranking:** Implementación de un modelo de re-ordenación para mejorar la relevancia del contexto.
-* **Evaluación:** Set de pruebas en `evaluation/eval.jsonl` con métricas de veracidad (LLM-as-a-Judge) y precisión de citas.
+* **Evaluación:** Pipeline de evaluación con métricas de veracidad (LLM-as-a-Judge) y precisión de citas.
 
 ---
 
@@ -74,9 +74,9 @@ Al trabajar con leyes del BOE, el texto crudo contenía elementos que degradaban
 ### Optimización del Contexto: Retrieval & Reranking
 Para maximizar la relevancia de las respuestas y evitar que el LLM se confunda con información irrelevante (ruido), se ha implementado una estrategia de recuperación en dos etapas:
 
-1. Retrieval (Top-20): El sistema busca inicialmente los 20 fragmentos (chunks) más similares vectorialmente en la base de datos ChromaDB.
+1. Retrieval (Top-30): El sistema busca inicialmente los 30 fragmentos (chunks) más similares vectorialmente en la base de datos ChromaDB.
 
-2. Reranking (Top-5): Sobre esos 20 resultados, se aplica un modelo de re-ordenación (Flashrank) que analiza la relevancia semántica real de cada fragmento respecto a la pregunta.
+2. Reranking (Top-5): Sobre esos 30 resultados, se aplica un modelo de re-ordenación (Flashrank) que analiza la relevancia semántica real de cada fragmento respecto a la pregunta.
 
 3. Filtrado final: Solo los 5 documentos mejor puntuados por el Reranker son enviados al LLM (Groq) para generar la respuesta.
 
@@ -93,7 +93,7 @@ Se han utilizado 5 documentos legales.
 | `LEY_ARRENDAMIENTOS_URBANOS.pdf` | LAU (Alquileres) |
 | `LEY_GENERAL_DE_SUBVENCIONES.pdf` | LGS (Ayudas Públicas) |
 | `Ley_Seguridad_Privada_Consolidada.pdf` | Seguridad Privada Consolidada |
-| `REGIMEN_FISCAL_DE_LAS_ENTIDADES_SIN_FINES_LUCRATIVOS.pdf` | Ley 49/2002 (Mecenazgo) |
+| `LEY_49-2002_REGIMEN_FISCAL_DE_LAS_ENTIDADES_SIN_FINES_LUCRATIVOS.pdf` | Ley 49/2002 (Mecenazgo) |
 
 ---
 

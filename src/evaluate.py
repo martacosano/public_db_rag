@@ -180,6 +180,7 @@ def run_evaluation():
         start_time = time.time()
         # 1. El RAG genera la respuesta
         rag_output = rag.query(case["question"])
+        print(rag_output["sources"])
         latency = time.time() - start_time
         
         # 2. El Juez evalúa la respuesta
@@ -250,5 +251,6 @@ def run_evaluation():
     print("   - Incluye respuestas, fuentes recuperadas, puntuaciones por caso")
     print("="*70)
 
+    
 if __name__ == "__main__":
     run_evaluation()
